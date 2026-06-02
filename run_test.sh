@@ -1,0 +1,15 @@
+#!/bin/bash
+set -e
+
+zig build
+
+mkdir -p mnt/EFI/BOOT
+cp zig-out/bin/cancun.efi mnt/EFI/BOOT/BOOTX64.EFI
+
+qemu-system-x86_64 \
+	-bios /usr/share/edk2/x64/OVMF.4m.fd \
+	-drive file=fat:rw:mnt,format=raw \
+	-cpu host,vmx=on \
+	-enable-kvm \
+	-net none \
+	-m 256M
