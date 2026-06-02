@@ -12,4 +12,5 @@ qemu-system-x86_64 \
 	-cpu host,vmx=on \
 	-enable-kvm \
 	-net none \
-	-m 256M
+	-m 256M \
+	-serial mon:stdio
