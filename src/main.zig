@@ -1,6 +1,8 @@
 const std = @import("std");
 const efi = std.os.uefi;
 
+const bootf = @import("boot.zig");
+
 // pub fn panic(msg: []const u8, ert: ?*std.builtin.StackTrace, ret_a: ?usize) noreturn {
 //     _ = msg;
 //     _ = ert;
@@ -21,6 +23,11 @@ pub fn main() efi.Status {
     // };
 
     // this should run hlt and after do a mp back to the adress of hlt
+    switch (bootf.bootmsg()) {
+        .success => {},
+        else => return .aborted,
+    }
+
     while (true) {
         asm volatile ("hlt");
     }
