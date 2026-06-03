@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-zig build
+zig build -Dlog_level= debug
 
 mkdir -p mnt/EFI/BOOT
 cp zig-out/bin/cancun.efi mnt/EFI/BOOT/BOOTX64.EFI

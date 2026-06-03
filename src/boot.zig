@@ -9,8 +9,11 @@ pub fn bootmsg() efi.Status {
 
     con_out.reset(false) catch unreachable;
     llog.init(con_out);
-    switch (llog.log("hello cancun {} \n", .{64})) {
+    switch (llog.log(.debug, "hello cancun {} \n", .{64})) {
         .success => {},
+        .no_response => {
+            // log message was ignored
+        },
         else => return .aborted,
     }
 
