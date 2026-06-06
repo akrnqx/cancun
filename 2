@@ -19,7 +19,7 @@ pub fn main() efi.Status {
     };
 
     var fs: *efi.protocol.SimpleFileSystem = undefined;
-    status = boot_service.locateProtocol(efi.protocol.SimpleFileSystem, @ptrCast(&fs));
+    status = boot_service.locateProtocol(&efi.protocol.SimpleFileSystem.guid, @ptrCast(&fs));
     if (status != .success) {
         llog.log(.err, "fs protocol failed with {}", .{status});
         return status;

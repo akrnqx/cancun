@@ -15,10 +15,10 @@ pub fn log(
     comptime level: Level,
     comptime fmt: []const u8,
     args: anytype,
-) efi.Status {
+) void {
     // basic log function
 
-    if (!shouldLog(level)) return .no_response;
+    if (!shouldLog(level)) return;
 
     const level_str = comptime switch (level) {
         .debug => "[DEBUG]",
@@ -28,15 +28,10 @@ pub fn log(
     };
     var buf: [128]u8 = undefined;
     const msg = std.fmt.bufPrint(&buf, level_str ++ " " ++ fmt, args) catch {
-        return .buffer_too_small;
+        return;
     };
 
-    const b_wrote = write(msg);
-
-    return switch (b_wrote) {
-        0 => .aborted,
-        else => .success,
-    };
+    _ = write(msg);
 }
 
 fn write(bytes: []const u8) usize {
