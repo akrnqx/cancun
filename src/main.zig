@@ -32,7 +32,7 @@ pub fn main() efi.Status {
         return .aborted;
     };
 
-    const kernel = openFile(root_dir, "cab.elf") catch return .aborted;
+    const kernel = openFile(root_dir, "CAB.ELF") catch return .aborted;
     const header_size: usize = @sizeOf(elf.Elf64_Ehdr);
     var header_buffer: []align(8) u8 = boot_service.allocatePool(.loader_data, header_size) catch {
         llog.log(.err, "Failed to allocate memory for kernel ELF header.", .{});
@@ -73,25 +73,16 @@ pub fn main() efi.Status {
     return .success;
 }
 
-inline fn toUcs2(comptime s: [:0]const u8) [s.len:0]u16 {
-    var ucs2: [s.len:0]u16 = undefined;
-    for (s, 0..) |c, i| {
-        ucs2[i] = c;
-    }
-    return ucs2;
-}
-
 fn openFile(
     root: *efi.protocol.File,
     comptime name: [:0]const u8,
 ) !*efi.protocol.File {
-    const file: *efi.protocol.File = root.open(
-        &toUcs2(name),
-        efi.protocol.File.OpenMode.read,
-        .{},
-    ) catch |err| {
+    const file_ucs2 = std.unicode.utf8ToUtf16LeStringLiteral(name);
+
+    const file: *efi.protocol.File = root.open(file_ucs2, efi.protocol.File.OpenMode.read, .{}) catch |err| {
         llog.log(.err, "Failed to open file: {s}: {}", .{ name, err });
         return error.Aborted;
     };
+
     return file;
 }
