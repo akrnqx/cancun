@@ -4,7 +4,6 @@ const elf = std.elf;
 const llog = @import("log.zig");
 
 pub fn main() efi.Status {
-    var status: efi.Status = undefined;
     const con_out = efi.system_table.con_out orelse return efi.Status.unsupported;
 
     con_out.reset(false) catch {
@@ -18,37 +17,37 @@ pub fn main() efi.Status {
         return .aborted;
     };
 
-    var fs: *efi.protocol.SimpleFileSystem = undefined;
-    status = boot_service.locateProtocol(efi.protocol.SimpleFileSystem, @ptrCast(&fs));
-    if (status != .success) {
-        llog.log(.err, "fs protocol failed with {}", .{status});
-        return status;
-    }
+    const fs_optional = boot_service.locateProtocol(efi.protocol.SimpleFileSystem, null) catch |err| {
+        llog.log(.err, "locate protocol failed with {}", .{err});
+        return .aborted;
+    };
 
-    var root_dir: *efi.protocol.File = undefined;
-    status = fs.openVolume(&root_dir);
-    if (status != .success) {
-        llog.log(.err, "volume did not open {}", .{status});
-        return status;
-    }
-    const kernel = openFile(root_dir, "ymir.elf") catch return .Aborted;
-    var header_size: usize = @sizeOf(elf.Elf64_Ehdr);
-    var header_buffer: [*]align(8) u8 = undefined;
-    status = boot_service.allocatePool(.LoaderData, header_size, &header_buffer);
-    if (status != .Success) {
+    var fs: *efi.protocol.SimpleFileSystem = fs_optional orelse {
+        llog.log(.err, "locate protocol is null", .{});
+        return .aborted;
+    };
+
+    const root_dir: *efi.protocol.File = fs.openVolume() catch |err| {
+        llog.log(.err, "could not open volume {}", .{err});
+        return .aborted;
+    };
+
+    const kernel = openFile(root_dir, "cab.elf") catch return .aborted;
+    const header_size: usize = @sizeOf(elf.Elf64_Ehdr);
+    var header_buffer: []align(8) u8 = boot_service.allocatePool(.loader_data, header_size) catch {
         llog.log(.err, "Failed to allocate memory for kernel ELF header.", .{});
-        return status;
-    }
+        return .aborted;
+    };
 
-    status = kernel.read(&header_size, header_buffer);
-    if (status != .Success) {
+    const b_read = kernel.read(header_buffer) catch {
         llog.log(.err, "Failed to read kernel ELF header.", .{});
-        return status;
-    }
+        return .aborted;
+    };
 
-    const elf_header = elf.Header.parse(header_buffer[0..@sizeOf(elf.Elf64_Ehdr)]) catch |err| {
-        llog.log(.err, "Failed to parse kernel ELF header: {?}", .{err});
-        return .Aborted;
+    var fixed_reader = std.Io.Reader.fixed(header_buffer[0..b_read]);
+    const elf_header = elf.Header.read(&fixed_reader) catch |err| {
+        llog.log(.err, "Failed to parse kernel ELF header: {}", .{err});
+        return .aborted;
     };
 
     llog.log(
@@ -74,11 +73,10 @@ pub fn main() efi.Status {
     return .success;
 }
 
-inline fn toUcs2(comptime s: [:0]const u8) [s.len * 2:0]u16 {
-    var ucs2: [s.len * 2:0]u16 = [_:0]16{0} ** (s.len * 2);
+inline fn toUcs2(comptime s: [:0]const u8) [s.len:0]u16 {
+    var ucs2: [s.len:0]u16 = undefined;
     for (s, 0..) |c, i| {
         ucs2[i] = c;
-        ucs2[i + 1] = 0;
     }
     return ucs2;
 }
@@ -87,17 +85,13 @@ fn openFile(
     root: *efi.protocol.File,
     comptime name: [:0]const u8,
 ) !*efi.protocol.File {
-    var file: *efi.protocol.File = undefined;
-    const status = root.open(
-        &file,
+    const file: *efi.protocol.File = root.open(
         &toUcs2(name),
-        efi.protocol.File.efi_file_mode_read,
-        0,
-    );
-
-    if (status != .Success) {
-        llog.log(.err, "Failed to open file: {s}", .{name});
+        efi.protocol.File.OpenMode.read,
+        .{},
+    ) catch |err| {
+        llog.log(.err, "Failed to open file: {s}: {}", .{ name, err });
         return error.Aborted;
-    }
+    };
     return file;
 }
