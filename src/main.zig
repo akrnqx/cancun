@@ -49,22 +49,7 @@ pub fn main() efi.Status {
         llog.log(.err, "Failed to parse kernel ELF header: {}", .{err});
         return .aborted;
     };
-
-    llog.log(
-        .debug,
-        \\Kernel ELF information:
-        \\  Entry Point         : 0x{X}
-        \\  Is 64-bit           : {d}
-        \\  # of Program Headers: {d}
-        \\  # of Section Headers: {d}
-    ,
-        .{
-            elf_header.entry,
-            @intFromBool(elf_header.is_64),
-            elf_header.phnum,
-            elf_header.shnum,
-        },
-    );
+    _ = elf_header;
 
     while (true) {
         asm volatile ("hlt");
