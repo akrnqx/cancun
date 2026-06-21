@@ -156,12 +156,11 @@ pub const kib = 1024;
 pub const page_size_4k = 4 * kib;
 
 fn allocateNewTable(T: type, entry: *T, bs: *BootServices) PageError!void {
-    var ptr: Phys = undefined;
-    const status = bs.allocatePages(.AllocateAnyPages, .BootServicesData, 1, @ptrCast(&ptr));
-    if (status != .Success) return PageError.NoMemory;
-
-    clearPage(ptr);
-    entry.* = T.newMapTable(@ptrFromInt(ptr), true);
+    const t = bs.allocatePages(.any, .boot_services_data, 1) catch {
+        return PageError.NoMemory;
+    };
+    clearPage(@intFromPtr(t.ptr));
+    entry.* = T.newMapTable(t.ptr, true);
 }
 
 fn clearPage(addr: Phys) void {
