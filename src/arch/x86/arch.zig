@@ -1,1 +1,1 @@
-const page = @import("page.zig");
+pub const map4kTo = @import("page.zig").map4kTo;

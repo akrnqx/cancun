@@ -2,6 +2,7 @@ const std = @import("std");
 const efi = std.os.uefi;
 const elf = std.elf;
 const llog = @import("log.zig");
+const arch = @import("arch.zig");
 
 pub fn main() efi.Status {
     const con_out = efi.system_table.con_out orelse return efi.Status.unsupported;
@@ -49,6 +50,17 @@ pub fn main() efi.Status {
         llog.log(.err, "Failed to parse kernel ELF header: {}", .{err});
         return .aborted;
     };
+
+    arch.c_arch.map4kTo(
+        0xFFFF_FFFF_DEAD_0000,
+        0x10_0000,
+        .read_write,
+        boot_service,
+    ) catch {
+        return .aborted;
+    };
+
+    _ = elf_header;
 
     while (true) {
         asm volatile ("hlt");

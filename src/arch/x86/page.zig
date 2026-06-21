@@ -151,3 +151,20 @@ pub fn map4kTo(virt: Virt, phys: Phys, attr: PageAttribute, bs: *BootServices) P
     new_lv1ent.rw = rw;
     lv1ent.* = new_lv1ent;
 }
+
+pub const kib = 1024;
+pub const page_size_4k = 4 * kib;
+
+fn allocateNewTable(T: type, entry: *T, bs: *BootServices) PageError!void {
+    var ptr: Phys = undefined;
+    const status = bs.allocatePages(.AllocateAnyPages, .BootServicesData, 1, @ptrCast(&ptr));
+    if (status != .Success) return PageError.NoMemory;
+
+    clearPage(ptr);
+    entry.* = T.newMapTable(@ptrFromInt(ptr), true);
+}
+
+fn clearPage(addr: Phys) void {
+    const page_ptr: [*]u8 = @ptrFromInt(addr);
+    @memset(page_ptr[0..page_size_4k], 0);
+}
