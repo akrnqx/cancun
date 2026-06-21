@@ -1,3 +1,6 @@
+const asmb = @import("asm.zig");
+const BootServices = @import("std").os.uefi.tables.BootServices;
+
 pub const Phys = u64;
 pub const Virt = u64;
 
@@ -85,4 +88,66 @@ fn getLv2Table(lv2_paddr: Phys) []Lv2Entry {
 }
 fn getLv1Table(lv1_paddr: Phys) []Lv1Entry {
     return getTable(Lv1Entry, lv1_paddr);
+}
+
+fn getEntry(T: type, vaddr: Virt, paddr: Phys) *T {
+    const table = getTable(T, paddr);
+    const shift = switch (T) {
+        Lv4Entry => 39,
+        Lv3Entry => 30,
+        Lv2Entry => 21,
+        Lv1Entry => 12,
+        else => @compileError("Unsupported type"),
+    };
+    return &table[(vaddr >> shift) & 0x1FF];
+}
+
+fn getLv4Entry(addr: Virt, cr3: Phys) *Lv4Entry {
+    return getEntry(Lv4Entry, addr, cr3);
+}
+fn getLv3Entry(addr: Virt, lv3tbl_paddr: Phys) *Lv3Entry {
+    return getEntry(Lv3Entry, addr, lv3tbl_paddr);
+}
+fn getLv2Entry(addr: Virt, lv2tbl_paddr: Phys) *Lv2Entry {
+    return getEntry(Lv2Entry, addr, lv2tbl_paddr);
+}
+fn getLv1Entry(addr: Virt, lv1tbl_paddr: Phys) *Lv1Entry {
+    return getEntry(Lv1Entry, addr, lv1tbl_paddr);
+}
+
+pub const PageAttribute = enum {
+    read_only,
+    read_write,
+    executable,
+};
+
+pub const PageError = error{
+    NoMemory,
+    NotPresent,
+    NotCanonical,
+    InvalidAddress,
+    AlreadyMapped,
+};
+
+pub fn map4kTo(virt: Virt, phys: Phys, attr: PageAttribute, bs: *BootServices) PageError!void {
+    const rw = switch (attr) {
+        .read_only, .executable => false,
+        .read_write => true,
+    };
+
+    const lv4ent = getLv4Entry(virt, asmb.readCr3());
+    if (!lv4ent.present) try allocateNewTable(Lv4Entry, lv4ent, bs);
+
+    const lv3ent = getLv3Entry(virt, lv4ent.address());
+    if (!lv3ent.present) try allocateNewTable(Lv3Entry, lv3ent, bs);
+
+    const lv2ent = getLv2Entry(virt, lv3ent.address());
+    if (!lv2ent.present) try allocateNewTable(Lv2Entry, lv2ent, bs);
+
+    const lv1ent = getLv1Entry(virt, lv2ent.address());
+    if (lv1ent.present) return PageError.AlreadyMapped;
+    var new_lv1ent = Lv1Entry.newMapPage(phys, true);
+
+    new_lv1ent.rw = rw;
+    lv1ent.* = new_lv1ent;
 }

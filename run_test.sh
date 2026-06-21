@@ -16,5 +16,4 @@ qemu-system-x86_64 \
 	-enable-kvm \
 	-net none \
 	-m 256M \
-	-serial mon:stdio \
-	-s -S
+	-serial mon:stdio

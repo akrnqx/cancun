@@ -49,7 +49,6 @@ pub fn main() efi.Status {
         llog.log(.err, "Failed to parse kernel ELF header: {}", .{err});
         return .aborted;
     };
-    _ = elf_header;
 
     while (true) {
         asm volatile ("hlt");
