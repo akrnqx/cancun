@@ -45,21 +45,14 @@ fn EntryBase(tl: TableLevel) type {
             };
         }
 
-        const TypeDec = switch (level) {
-            .lv4 => Lv3Entry,
-            .lv3 => Lv2Entry,
-            .lv2 => Lv1Entry,
-            .lv1 => struct {},
-        };
-
-        pub fn newMapTable(table: [*]TypeDec, present: bool) Self {
+        pub fn newMapTable(phys: Phys, present: bool) Self {
             if (level == .lv1) @compileError("lv1  cannot be dec");
             return Self{
                 .present = present,
                 .rw = true,
                 .us = false,
                 .ps = false,
-                .phys = @truncate(@intFromPtr(table) >> 12),
+                .phys = @truncate(phys >> 12),
             };
         }
     };
@@ -135,7 +128,7 @@ pub fn map4kTo(virt: Virt, phys: Phys, attr: PageAttribute, bs: *BootServices) P
         .read_write => true,
     };
 
-    const lv4ent = getLv4Entry(virt, asmb.readCr3());
+    const lv4ent = getLv4Entry(virt, asmb.getCr3());
     if (!lv4ent.present) try allocateNewTable(Lv4Entry, lv4ent, bs);
 
     const lv3ent = getLv3Entry(virt, lv4ent.address());
@@ -159,8 +152,10 @@ fn allocateNewTable(T: type, entry: *T, bs: *BootServices) PageError!void {
     const t = bs.allocatePages(.any, .boot_services_data, 1) catch {
         return PageError.NoMemory;
     };
-    clearPage(@intFromPtr(t.ptr));
-    entry.* = T.newMapTable(t.ptr, true);
+
+    const pa = @intFromPtr(t.ptr);
+    clearPage(pa);
+    entry.* = T.newMapTable(pa, true);
 }
 
 fn clearPage(addr: Phys) void {
