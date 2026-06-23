@@ -162,3 +162,19 @@ fn clearPage(addr: Phys) void {
     const page_ptr: [*]u8 = @ptrFromInt(addr);
     @memset(page_ptr[0..page_size_4k], 0);
 }
+
+pub fn setLv4Writable(bs: *BootServices) PageError!void {
+    const allocated = bs.allocatePages(.any, .boot_services_data, 1) catch {
+        return PageError.NoMemory;
+    };
+
+    const new_lv4_ptr: [*]Lv4Entry = @ptrCast(allocated.ptr);
+
+    const new_lv4tbl = new_lv4_ptr[0..num_table_entries];
+
+    const lv4tbl = getLv4Table(asmb.getCr3());
+
+    @memcpy(new_lv4tbl, lv4tbl);
+
+    asmb.setCr3(@intFromPtr(allocated.ptr));
+}

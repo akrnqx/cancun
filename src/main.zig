@@ -60,6 +60,9 @@ pub fn main() efi.Status {
         return .aborted;
     };
 
+    arch.c_arch.setLv4Writable(boot_service) catch {
+        return .load_error;
+    };
     _ = elf_header;
 
     while (true) {
